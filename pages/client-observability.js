@@ -66,6 +66,26 @@
         };
     }
 
+    function wrapRequestMethod(player) {
+        if (!player || typeof player.handleRequest !== 'function') {
+            return;
+        }
+        var original = player.handleRequest;
+        player.handleRequest = function (dataId, data, callback) {
+            report('plugin_request', {detail: clean(dataId)});
+            var observedCallback = callback;
+            if (typeof callback === 'function') {
+                observedCallback = function (response) {
+                    var itemCount = response && response.items && response.items.length;
+                    var detail = clean(dataId) + (typeof itemCount === 'number' ? ' items=' + itemCount : '');
+                    report('plugin_response', {detail: detail});
+                    return callback.apply(this, arguments);
+                };
+            }
+            return original.call(this, dataId, data, observedCallback);
+        };
+    }
+
     function installPluginHooks() {
         if (!window.TVXVideoPlugin) {
             report('tvx_plugin_missing');
@@ -78,7 +98,7 @@
                 wrapMethod(player, 'init', 'plugin_init');
                 wrapMethod(player, 'ready', 'plugin_ready');
                 wrapMethod(player, 'dispose', 'plugin_dispose');
-                wrapMethod(player, 'handleRequest', 'plugin_request', 0);
+                wrapRequestMethod(player);
                 wrapMethod(player, 'handleData', 'plugin_data', 0);
                 report('plugin_setup');
                 return originalSetup.apply(this, arguments);
