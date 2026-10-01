@@ -1,7 +1,7 @@
 import traceback
+from contextlib import asynccontextmanager
 
 import uvicorn
-from brotli_asgi import BrotliMiddleware
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.middleware.gzip import GZipMiddleware
@@ -14,9 +14,16 @@ from models.Category import Category
 from models.Content import Content
 from models.Device import Device
 from models.KinoPub import KinoPub
-from util import msx, proxy
+from util import http, msx, proxy
 
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    yield
+    await http.close_session()
+
+
+app = FastAPI(lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=['*'],
@@ -26,7 +33,6 @@ app.add_middleware(
 )
 
 app.add_middleware(GZipMiddleware, minimum_size=1000)
-app.add_middleware(BrotliMiddleware, minimum_size=1000)
 
 ENDPOINT = '/msx'
 UNAUTHORIZED = [

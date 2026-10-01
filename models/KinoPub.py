@@ -1,5 +1,3 @@
-import aiohttp
-
 import config
 from models.Category import Category
 from models.Channel import Channel
@@ -9,7 +7,7 @@ from models.Folder import Folder
 from models.Genre import Genre
 from models.Media import Media
 from models.Reference import Reference
-from util import db
+from util import db, http
 from util.msx import LENNY
 
 
@@ -29,16 +27,19 @@ class KinoPub:
         if self.user_agent is not None:
             headers['User-Agent'] = 'kp-msx/' + self.user_agent
 
-        async with aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=config.TIMEOUT)) as s:
-            if method == 'GET':
-                response = await s.get(f'{config.KP_API_DOMAIN}/v1{path}', params=params)
-            else:
-                response = await s.request(method, f'{config.KP_API_DOMAIN}/v1{path}', json=params)
+        session = http.get_session()
+        request_args = {'params': params} if method == 'GET' else {'json': params}
+        async with session.request(
+            method,
+            f'{config.KP_API_DOMAIN}/v1{path}',
+            headers=headers,
+            **request_args,
+        ) as response:
 
             if response.status == 401:
                 reauth_result = await self.refresh_tokens()
                 if reauth_result:
-                    return await self.api(path, params=params)
+                    return await self.api(path, params=params, method=method)
                 else:
                     return None
 
@@ -194,8 +195,8 @@ class KinoPub:
             'client_id': config.KP_CLIENT_ID,
             'client_secret': config.KP_CLIENT_SECRET
         }
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=config.TIMEOUT)) as s:
-            response = await s.post(f'{config.KP_API_DOMAIN}/oauth2/device', params=params)
+        session = http.get_session()
+        async with session.post(f'{config.KP_API_DOMAIN}/oauth2/device', params=params) as response:
             result = await response.json()
             return result['user_code'], result['code']
 
@@ -207,8 +208,8 @@ class KinoPub:
             'client_secret': config.KP_CLIENT_SECRET,
             'code': code
         }
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=config.TIMEOUT)) as s:
-            response = await s.post(f'{config.KP_API_DOMAIN}/oauth2/device', params=params)
+        session = http.get_session()
+        async with session.post(f'{config.KP_API_DOMAIN}/oauth2/device', params=params) as response:
             result = await response.json()
             if result.get('error') is not None:
                 return None
@@ -221,8 +222,8 @@ class KinoPub:
             'client_secret': config.KP_CLIENT_SECRET,
             'refresh_token': self.refresh
         }
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=config.TIMEOUT)) as s:
-            response = await s.post(f'{config.KP_API_DOMAIN}/oauth2/device', params=params)
+        session = http.get_session()
+        async with session.post(f'{config.KP_API_DOMAIN}/oauth2/device', params=params) as response:
             result = await response.json()
             if result.get('error') is not None:
                 return False
@@ -236,4 +237,3 @@ class KinoPub:
     async def get_available_servers(self):
         result = await self.api('/references/server-location')
         return [Reference(i) for i in result.get('items', [])]
-

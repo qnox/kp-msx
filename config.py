@@ -15,4 +15,6 @@ KP_API_DOMAIN = os.environ.get('KP_API_DOMAIN') or 'https://api.service-kp.com'
 QUALITY = os.environ.get('QUALITY')
 PROTOCOL = os.environ.get('PROTOCOL') or 'hls4'
 TIZEN = os.environ.get('TIZEN') == 'yes'
-TIMEOUT = int(os.environ.get('TIMEOUT', 5))
+TIMEOUT = min(int(os.environ.get('TIMEOUT', 5)), 5)
+CONNECT_TIMEOUT = min(int(os.environ.get('CONNECT_TIMEOUT', 2)), TIMEOUT)
+DNS_CACHE_TTL = int(os.environ.get('DNS_CACHE_TTL', 300))

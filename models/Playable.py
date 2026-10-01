@@ -41,7 +41,7 @@ class Playable:
             'trigger:ready': self.trigger_ready()
         }
 
-        props.update(msx.DEFAULT_PLAY_BUTTON_PROPS)
+        props.update(msx.default_play_button_props(device_settings))
 
         if device_settings is not None and device_settings.alternative_player:
             for track in self.subtitles:

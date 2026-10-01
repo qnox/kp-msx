@@ -90,7 +90,7 @@ class DeviceSettings:
         entry = msx.settings_button(
             msx.ALTERNATIVE_PLAYER_ID, 'Альтернативный плеер',
             msx.format_action(f'/msx/settings/toggle/{msx.ALTERNATIVE_PLAYER_ID}', module='execute'),
-            "Включите, если телевизор очень старый (Tizen или webOS до 3 версии, год выпуска ТВ до 2018 года)."
+            "Включите для HTML5/HLS-плеера с выбором субтитров. На Samsung 2018 это обходит старый AVPlay из MSX 0.1.151, но может поддерживать меньше кодеков."
         )
         entry.update(msx.stamp(self.alternative_player))
         return entry
@@ -120,5 +120,4 @@ class DeviceSettings:
             f"Протокол: {config.PROTOCOL}"
         )
         return entry
-
 

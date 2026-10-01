@@ -1,8 +1,7 @@
 from re import RegexFlag
 from urllib.parse import urlparse, urlencode
-import aiohttp
 import config
-from util import db
+from util import db, http
 import re
 
 
@@ -49,12 +48,11 @@ async def get(url, real_ip=None):
     if real_ip is not None:
         headers['X-Real-Ip'] = real_ip
 
-    async with aiohttp.ClientSession(headers=headers, timeout=aiohttp.ClientTimeout(total=config.TIMEOUT)) as s:
-        response = await s.get(url)
+    session = http.get_session()
+    async with session.get(url, headers=headers) as response:
         content = await response.read()
         if isinstance(content, bytes):
             text_content = content.decode('utf-8')
             text_content = rewrite_domain(url, text_content)
             content = text_content.encode('utf-8')
         return response.status, response.headers.get('content-type'), content
-

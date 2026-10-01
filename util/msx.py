@@ -347,7 +347,7 @@ def tv_channels(channels, device_settings: 'DeviceSettings' = None):
                 'control:type': 'extended',
                 "button:content:enable": "false",
                 'button:restart:icon': 'settings',
-                'button:restart:action': player_action_btn(),
+                'button:restart:action': player_action_btn(device_settings),
                 'progress:display': 'false'
             }
         },
@@ -446,23 +446,30 @@ def unsupported_version():
     }
 
 
-def player_action_btn():
-    if config.TIZEN:
+def use_tizen_player(device_settings: 'DeviceSettings' = None):
+    return config.TIZEN and not (
+        device_settings is not None and device_settings.alternative_player
+    )
+
+
+def player_action_btn(device_settings: 'DeviceSettings' = None):
+    if use_tizen_player(device_settings):
         return 'content:request:interaction:init@https://msx.benzac.de/interaction/tizen.html'
     else:
         return 'panel:request:player:options'
 
 
-DEFAULT_PLAY_BUTTON_PROPS = {
-    'control:type': 'extended',
-    'button:content:icon': 'list-alt',
-    'button:content:action': f'player:content',
-    'button:restart:icon': 'settings',
-    'button:restart:action': player_action_btn(),
-    'button:speed:icon': 'replay',
-    'button:speed:action': 'player:restart',
-    'trigger:background': 'player:button:eject:execute'
-}
+def default_play_button_props(device_settings: 'DeviceSettings' = None):
+    return {
+        'control:type': 'extended',
+        'button:content:icon': 'list-alt',
+        'button:content:action': 'player:content',
+        'button:restart:icon': 'settings',
+        'button:restart:action': player_action_btn(device_settings),
+        'button:speed:icon': 'replay',
+        'button:speed:action': 'player:restart',
+        'trigger:background': 'player:button:eject:execute'
+    }
 
 
 def settings_screen(screen: bool = False):
@@ -617,7 +624,7 @@ def play_action(video_url, device_settings: 'DeviceSettings' = None, disable_pro
     url = make_proxy_url(video_url) if device_settings is not None and device_settings.proxy and not disable_proxy else video_url
     player = config.ALTERNATIVE_PLAYER if device_settings is not None and device_settings.alternative_player else config.PLAYER
 
-    if config.TIZEN:
+    if use_tizen_player(device_settings):
         return f'video:{url}'
     else:
         return f"video:plugin:{player}?" + urlencode({'url': url})

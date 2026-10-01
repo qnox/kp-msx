@@ -129,7 +129,7 @@ class Content:
             'trigger:background': 'player:button:eject:execute'
         }
 
-        props.update(msx.DEFAULT_PLAY_BUTTON_PROPS)
+        props.update(msx.default_play_button_props(device_settings))
 
         button = {
             "id": self.TRAILER_BUTTON_ID,
@@ -395,4 +395,3 @@ class Content:
             subentry.update(self.to_bookmark_stamp(folder.id))
             entry['items'].append(subentry)
         return entry
-

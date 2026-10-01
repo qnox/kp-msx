@@ -23,7 +23,10 @@ class Channel:
         else:
             player = config.PLAYER
 
-        if config.TIZEN:
+        use_tizen_player = config.TIZEN and not (
+            device_settings is not None and device_settings.alternative_player
+        )
+        if use_tizen_player:
             action = f'video:{self.stream}'
         else:
             action = f"video:plugin:{player}?" + urlencode({'url': url})
