@@ -1,3 +1,4 @@
+import json
 import traceback
 from contextlib import asynccontextmanager
 
@@ -14,7 +15,7 @@ from models.Category import Category
 from models.Content import Content
 from models.Device import Device
 from models.KinoPub import KinoPub
-from util import http, msx, proxy
+from util import http, msx, observability, proxy
 
 
 @asynccontextmanager
@@ -37,7 +38,8 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 ENDPOINT = '/msx'
 UNAUTHORIZED = [
     ENDPOINT + '/start.json',
-    ENDPOINT + '/proxy'
+    ENDPOINT + '/proxy',
+    ENDPOINT + '/client-report'
 ]
 
 
@@ -422,6 +424,37 @@ async def toggle_menu_entry(request: Request):
     return msx.restart()
 
 # Errors
+
+@app.post(ENDPOINT + '/client-report')
+async def client_report(request: Request):
+    body = await request.body()
+    if len(body) > 4096:
+        return Response(status_code=413)
+    try:
+        payload = json.loads(body)
+        client_ip = extract_real_ip(request)
+        if client_ip is None and request.client is not None:
+            client_ip = request.client.host
+        if not observability.allow_client_event(client_ip):
+            return Response(status_code=429)
+        observability.record_client_event(
+            payload,
+            client_ip=client_ip,
+            user_agent=request.headers.get('user-agent'),
+        )
+    except (ValueError, TypeError, json.JSONDecodeError):
+        return Response(status_code=400)
+    return Response(status_code=204)
+
+
+@app.get(ENDPOINT + '/client-report/recent')
+async def recent_client_reports(request: Request):
+    limit = request.query_params.get('limit', 50)
+    try:
+        return {'events': observability.recent_client_events(limit)}
+    except (TypeError, ValueError):
+        return Response(status_code=400)
+
 
 @app.get(ENDPOINT + '/error')
 async def error_page(request: Request):
