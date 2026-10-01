@@ -85,7 +85,94 @@ class Content:
             else:
                 return msx.format_action('/msx/multivideo', params={'content_id': self.id}, module='panel')
         if self.seasons is not None:
+            episode = self.primary_episode()
+            if episode is not None:
+                return self.playlist_action(episode)
             return msx.format_action('/msx/seasons', params={'content_id': self.id}, module='panel')
+
+    def episodes(self):
+        if not self.seasons:
+            return []
+        return [episode for season in self.seasons for episode in season.episodes]
+
+    def primary_episode(self):
+        episodes = self.playable_episodes()
+        if not episodes:
+            return None
+        return next((episode for episode in episodes if not episode.watched), episodes[0])
+
+    def playable_episodes(self):
+        return [episode for episode in self.episodes() if episode.video_url]
+
+    def playlist_action(self, episode):
+        episodes = self.playable_episodes()
+        try:
+            index = episodes.index(episode)
+        except ValueError:
+            index = 0
+        playlist_url = msx.format_action(
+            '/msx/playlist',
+            params={'content_id': self.id},
+        )
+        return f'playlist:{playlist_url}>index:{index}'
+
+    def primary_play_label(self):
+        episode = self.primary_episode()
+        if episode is None:
+            return "Выбрать серию"
+
+        suffix = f"S{episode.season}E{episode.n}"
+        if episode.watched:
+            return f"Сначала {suffix}"
+        if any(item.watched for item in self.episodes()):
+            return f"Продолжить {suffix}"
+        return f"Смотреть {suffix}"
+
+    def primary_play_properties(self, device_settings: 'DeviceSettings' = None):
+        if self.videos is not None and len(self.videos) == 1:
+            return self.videos[0].msx_properties(device_settings=device_settings)
+        return None
+
+    def episode_player_properties(self, episode, device_settings: 'DeviceSettings' = None):
+        properties = episode.msx_properties(device_settings=device_settings)
+        episode_list_url = msx.format_action(
+            '/msx/episodes',
+            params={'content_id': self.id, 'season': episode.season},
+        )
+        info = f'{self.title}{{br}}S{episode.season}E{episode.n} · {episode.title}'
+        if self.plot:
+            info += f'{{br}}{{br}}{self.plot}'
+
+        properties.update({
+            'button:content:icon': 'list-alt',
+            'button:content:action': f'player:content:{episode_list_url}',
+            'info:text': info,
+            'info:size': 'large',
+            'info:overlay': 'full',
+        })
+        poster = self.poster.get(device_settings=device_settings)
+        if poster and poster != 'None':
+            properties['info:image'] = poster
+        return properties
+
+    def to_msx_playlist(self, device_settings: 'DeviceSettings' = None):
+        items = []
+        for episode in self.playable_episodes():
+            items.append({
+                'id': f's{episode.season}e{episode.n}',
+                'title': episode.menu_title(),
+                'playerLabel': f'{self.title} · S{episode.season}E{episode.n} · {episode.title}',
+                'action': episode.msx_action(device_settings=device_settings),
+                'properties': self.episode_player_properties(
+                    episode,
+                    device_settings=device_settings,
+                ),
+            })
+        return {
+            'type': 'list',
+            'headline': self.title,
+            'items': items,
+        }
 
     SUBSCRIPTION_BUTTON_ID = "subscription_button"
     BOOKMARK_BUTTON_ID = "bookmark_button"
@@ -231,14 +318,14 @@ class Content:
             "id": self.WATCH_BUTTON_ID,
             "type": "button",
             "layout": f"4,5,2,1",
-            "label": "Смотреть",
+            "label": self.primary_play_label() if self.seasons else "Смотреть",
             "playerLabel": self.title,
             'focus': True,
             'action': self.msx_action(device_settings=device_settings),
         }
 
-        if self.videos is not None and len(self.videos) == 1:
-            watch_button['properties'] = self.videos[0].msx_properties(device_settings=device_settings)
+        if properties := self.primary_play_properties(device_settings=device_settings):
+            watch_button['properties'] = properties
 
         buttons = [watch_button] + buttons
 
@@ -314,6 +401,10 @@ class Content:
 
 
     def to_seasons_msx_panel(self):
+        focus_index = next(
+            (i for i, season in enumerate(self.seasons) if not season.watched),
+            0,
+        )
         entry = {
             "type": "list",
             "headline": self.title,
@@ -326,11 +417,11 @@ class Content:
             "items": []
         }
 
-        for season in self.seasons:
+        for i, season in enumerate(self.seasons):
             entry['items'].append({
                 "label": f"Cезон {season.n}",
                 'stamp': '{ico:check}' if season.watched else None,
-                'focus': not season.watched,
+                'focus': i == focus_index,
                 "action": msx.format_action('/msx/episodes', params={'content_id': self.id, 'season': season.n}, module='panel')
             })
         return entry
@@ -362,7 +453,10 @@ class Content:
                 "layout": f"0,0,8,1",
                 'stampColor': 'msx-glass',
             },
-            "items": season.to_episode_pages(device_settings=device_settings)
+            "items": season.to_episode_pages(
+                device_settings=device_settings,
+                action_for_episode=self.playlist_action,
+            )
         }
         return entry
 

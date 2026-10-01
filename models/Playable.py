@@ -38,7 +38,7 @@ class Playable:
     def msx_properties(self, device_settings: 'DeviceSettings' = None):
         props = {
             'resume:key': self.resume_key(),
-            'trigger:ready': self.trigger_ready()
+            'trigger:90%': self.trigger_watched()
         }
 
         props.update(msx.default_play_button_props(device_settings))

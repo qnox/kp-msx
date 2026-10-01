@@ -253,6 +253,14 @@ async def episodes(request: Request):
     )
 
 
+@app.get(ENDPOINT + '/playlist')
+async def playlist(request: Request):
+    result = await request.state.device.kp.get_single_content(request.query_params.get('content_id'))
+    if result is None:
+        return msx.does_not_exist()
+    return result.to_msx_playlist(device_settings=request.state.device.settings)
+
+
 @app.get(ENDPOINT + '/search')
 async def search(request: Request):
     result = await request.state.device.kp.search(request.query_params.get('q'))

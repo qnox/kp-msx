@@ -26,7 +26,7 @@ class Episode(Playable):
     def player_title(self):
         return f'[S{self.season}/E{self.n}] {self.title}'
 
-    def trigger_ready(self):
+    def trigger_watched(self):
         params = {
             'content_id': self.content_id,
             'season': self.season,

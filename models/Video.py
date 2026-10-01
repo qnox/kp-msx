@@ -26,7 +26,7 @@ class Video(Playable):
         return entry
 
 
-    def trigger_ready(self):
+    def trigger_watched(self):
         params = {
             'content_id': self.content_id
         }
