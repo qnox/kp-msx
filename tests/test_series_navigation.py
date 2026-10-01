@@ -29,10 +29,30 @@ def series(seasons):
         'title': 'Test Series',
         'plot': 'Test series plot.',
         'posters': {'big': 'https://example.test/poster.jpg'},
+        'trailer': {'url': 'https://example.test/trailer.m3u8'},
         'seasons': [
             {'number': number, 'episodes': episodes}
             for number, episodes in seasons
         ],
+    })
+
+
+def movie():
+    return Content({
+        'id': 84,
+        'title': 'Test Movie',
+        'plot': 'Test movie plot.',
+        'posters': {'big': 'https://example.test/movie-poster.jpg'},
+        'trailer': {'url': 'https://example.test/movie-trailer.m3u8'},
+        'videos': [{
+            'title': 'Main',
+            'files': [{
+                'quality': '1080p',
+                'quality_id': 1,
+                'url': {'hls4': 'https://example.test/movie.m3u8'},
+            }],
+            'subtitles': [],
+        }],
     })
 
 
@@ -56,6 +76,8 @@ class SeriesNavigationTests(unittest.TestCase):
         buttons = {item.get('id'): item for item in page['pages'][0]['items']}
 
         self.assertEqual('Смотреть S1E1', buttons['watch_button']['label'])
+        self.assertEqual('4,5,4,1', buttons['watch_button']['layout'])
+        self.assertEqual('8,5,1,1', buttons['trailer_button']['layout'])
         self.assertIn('playlist:', buttons['watch_button']['action'])
         self.assertTrue(buttons['watch_button']['action'].endswith('>index:0'))
         self.assertNotIn('episodes_button', buttons)
@@ -74,6 +96,8 @@ class SeriesNavigationTests(unittest.TestCase):
         buttons = {item.get('id'): item for item in page['pages'][0]['items']}
 
         self.assertEqual('Продолжить S1E2', buttons['watch_button']['label'])
+        self.assertEqual('4,5,4,1', buttons['watch_button']['layout'])
+        self.assertEqual('8,5,1,1', buttons['trailer_button']['layout'])
         self.assertTrue(buttons['watch_button']['action'].endswith('>index:1'))
 
         playlist = content.to_msx_playlist(device_settings=self.settings)
@@ -98,6 +122,8 @@ class SeriesNavigationTests(unittest.TestCase):
         buttons = {item.get('id'): item for item in page['pages'][0]['items']}
 
         self.assertEqual('Сначала S1E1', buttons['watch_button']['label'])
+        self.assertEqual('4,5,3,1', buttons['watch_button']['layout'])
+        self.assertEqual('7,5,1,1', buttons['trailer_button']['layout'])
         self.assertTrue(buttons['watch_button']['action'].endswith('>index:0'))
 
     def test_episode_and_season_pickers_have_one_focus_target(self):
@@ -130,6 +156,23 @@ class SeriesNavigationTests(unittest.TestCase):
             ['video:https://example.test/s1e1.m3u8', 'video:https://example.test/s2e1.m3u8'],
             [item['action'] for item in playlist['items']],
         )
+
+    @patch.object(config, 'TIZEN', True)
+    def test_movie_reserves_space_and_offers_resume_when_available(self):
+        content = movie()
+
+        page = content.to_msx_content(device_settings=self.settings)
+        buttons = {item.get('id'): item for item in page['pages'][0]['items']}
+        watch = buttons['watch_button']
+
+        self.assertEqual('Смотреть', watch['label'])
+        self.assertEqual('4,5,3,1', watch['layout'])
+        self.assertEqual('7,5,1,1', buttons['trailer_button']['layout'])
+        self.assertEqual('playback', watch['live']['type'])
+        self.assertEqual('none', watch['live']['source'])
+        self.assertEqual('Продолжить', watch['live']['coming']['label'])
+        self.assertIn('resume:key', watch['properties'])
+        self.assertIn('trigger:90%', watch['properties'])
 
 
 if __name__ == '__main__':

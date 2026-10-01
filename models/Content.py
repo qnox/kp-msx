@@ -128,6 +128,10 @@ class Content:
             return f"Продолжить {suffix}"
         return f"Смотреть {suffix}"
 
+    @staticmethod
+    def primary_play_width(label):
+        return min(5, max(3, (len(label) + 3) // 4))
+
     def primary_play_properties(self, device_settings: 'DeviceSettings' = None):
         if self.videos is not None and len(self.videos) == 1:
             return self.videos[0].msx_properties(device_settings=device_settings)
@@ -306,19 +310,31 @@ class Content:
 
     def to_msx_content(self, device_settings: 'DeviceSettings' = None,):
 
+        play_label = self.primary_play_label() if self.seasons else "Смотреть"
+        resumable_movie = self.videos is not None and len(self.videos) == 1
+        if self.seasons:
+            play_width = self.primary_play_width(play_label)
+        elif resumable_movie:
+            play_width = self.primary_play_width("Продолжить")
+        else:
+            play_width = 2
+
         buttons = [self.to_bookmark_button(in_content=True)]
 
         if self.seasons:
             buttons.append(self.to_subscription_button(in_content=True))
 
         if self.trailer:
-            buttons.append(self.to_trailer_button(in_content=True, device_settings=device_settings))
+            trailer_button = self.to_trailer_button(in_content=True, device_settings=device_settings)
+            if play_width > 2:
+                trailer_button['layout'] = f"{4 + play_width},5,1,1"
+            buttons.append(trailer_button)
 
         watch_button = {
             "id": self.WATCH_BUTTON_ID,
             "type": "button",
-            "layout": f"4,5,2,1",
-            "label": self.primary_play_label() if self.seasons else "Смотреть",
+            "layout": f"4,5,{play_width},1",
+            "label": play_label,
             "playerLabel": self.title,
             'focus': True,
             'action': self.msx_action(device_settings=device_settings),
@@ -326,6 +342,15 @@ class Content:
 
         if properties := self.primary_play_properties(device_settings=device_settings):
             watch_button['properties'] = properties
+
+        if resumable_movie:
+            watch_button['live'] = {
+                'type': 'playback',
+                'source': 'none',
+                'coming': {
+                    'label': 'Продолжить',
+                },
+            }
 
         buttons = [watch_button] + buttons
 
